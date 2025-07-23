@@ -3,15 +3,30 @@ import 'package:flutter/services.dart';
 
 import 'flutter_qr_scanner_platform_interface.dart';
 
-/// An implementation of [FlutterQrScannerPlatform] that uses method channels.
+/// Platform-specific implementation using MethodChannel.
 class MethodChannelFlutterQrScanner extends FlutterQrScannerPlatform {
-  /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel('flutter_qr_scanner');
 
   @override
   Future<String?> getPlatformVersion() async {
-    final version = await methodChannel.invokeMethod<String>('getPlatformVersion');
+    final version =
+        await methodChannel.invokeMethod<String>('getPlatformVersion');
     return version;
+  }
+
+  @override
+  Future<Map?> scanQR() async {
+    final result = await methodChannel.invokeMethod<Map>('scanQR');
+    return result;
+  }
+
+  @override
+  Future<String?> scanQRFromImage(String filePath) async {
+    final result = await methodChannel.invokeMethod<String>(
+      'scanQRFromImage',
+      {"path": filePath},
+    );
+    return result;
   }
 }

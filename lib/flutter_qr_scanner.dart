@@ -1,23 +1,18 @@
-// import 'flutter_qr_scanner_platform_interface.dart';
-
-// class FlutterQrScanner {
-//   Future<String?> getPlatformVersion() {
-//     return FlutterQrScannerPlatform.instance.getPlatformVersion();
-//   }
-// }
-import 'package:flutter/services.dart';
+import 'flutter_qr_scanner_platform_interface.dart';
 
 class FlutterQrScanner {
-  static const MethodChannel _channel = MethodChannel('flutter_qr_scanner');
-
+  /// Quét mã QR bằng camera
   static Future<Map?> scanQR() async {
-    final result = await _channel.invokeMethod<Map>('scanQR');
-    return result;
+    return await FlutterQrScannerPlatform.instance.scanQR();
   }
 
+  /// Quét mã QR từ file ảnh (path)
   static Future<String?> scanQRFromImage(String filePath) async {
-    final result = await _channel
-        .invokeMethod<String>('scanQRFromImage', {"path": filePath});
-    return result;
+    return await FlutterQrScannerPlatform.instance.scanQRFromImage(filePath);
+  }
+
+  /// Lấy thông tin platform (nếu cần)
+  static Future<String?> getPlatformVersion() {
+    return FlutterQrScannerPlatform.instance.getPlatformVersion();
   }
 }

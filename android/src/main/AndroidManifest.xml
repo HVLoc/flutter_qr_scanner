@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" package="vn.lochv.flutter_qr_scanner">
 	<application>
-		<activity android:name="vn.lochv.flutter_qr_scanner.PortraitCaptureActivity" android:screenOrientation="portrait" tools:replace="android:screenOrientation" />
+		<activity android:name="vn.lochv.flutter_qr_scanner.PortraitCaptureActivity" android:screenOrientation="portrait" tools:replace="android:screenOrientation"     android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+			android:exported="true" />
 	</application>
 </manifest>
