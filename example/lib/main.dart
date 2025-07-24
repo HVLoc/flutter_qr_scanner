@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_qr_scanner/flutter_qr_scanner.dart';
+import 'package:flutter_qr_scanner/qr_scanner_page.dart';
 import 'package:image_picker/image_picker.dart';
 
 void main() {
@@ -38,6 +39,20 @@ class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
     }
   }
 
+  Future<void> _scanWithCustomView() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CustomQRScannerScreen(),
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        content = result as String?;
+      });
+    }
+  }
+
   Future<void> _pickAndScanImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
@@ -59,10 +74,14 @@ class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
           children: [
             ElevatedButton(
               onPressed: _scanQRCode,
-              child: const Text('Scan QR Camera'),
+              child: const Text('Scan QR (Simple Native View)'),
+            ),
+            ElevatedButton(
+              onPressed: _scanWithCustomView,
+              child: const Text('Scan QR (Custom Flutter Overlay)'),
             ),
             if (content != null) ...[
-              Text('Camera QR Result: $content'),
+              Text('QR Result: $content'),
             ],
             const Divider(height: 30),
             ElevatedButton(
@@ -74,6 +93,80 @@ class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
             ]
           ],
         ),
+      ),
+    );
+  }
+}
+
+class CustomQRScannerScreen extends StatefulWidget {
+  const CustomQRScannerScreen({super.key});
+
+  @override
+  State<CustomQRScannerScreen> createState() => _CustomQRScannerScreenState();
+}
+
+class _CustomQRScannerScreenState extends State<CustomQRScannerScreen> {
+  bool flashOn = false;
+
+  void _onScanResult(String result) {
+    print('Scan result: $result');
+
+    Navigator.pop(context, result);
+  }
+
+  void _onCancel() {
+    Navigator.pop(context);
+  }
+
+  void _toggleFlash() {
+    // Gửi toggle flash qua MethodChannel nếu bạn hỗ trợ
+    setState(() {
+      flashOn = !flashOn;
+    });
+  }
+
+  void _openGallery() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked != null) {
+      final result = await FlutterQrScanner.scanQRFromImage(picked.path);
+      if (result?['content'] != null) {
+        Navigator.pop(context, result?['content']);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          QrScannerPage(
+            onScanResult: _onScanResult,
+          ),
+          // Overlay UI
+          Positioned(
+            top: 40,
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: _onCancel,
+            ),
+          ),
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ElevatedButton.icon(
+                onPressed: _openGallery,
+                icon: const Icon(Icons.photo_library),
+                label: const Text('Hoàng LĐ Gà'),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

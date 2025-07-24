@@ -15,6 +15,7 @@ import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
+import io.flutter.plugin.common.BinaryMessenger
 
 class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
 
@@ -23,11 +24,19 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
     private var result: MethodChannel.Result? = null
     private var pendingMethodCall: MethodCall? = null
     private var showGallery: Boolean = false
+    private var viewFactory: QrScannerViewFactory? = null
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, "flutter_qr_scanner")
         channel.setMethodCallHandler(this)
+        // PlatformView đăng ký tại đây nếu activity đã có
+        // ✅ Đăng ký PlatformView ở đây
+        binding.platformViewRegistry.registerViewFactory(
+            "vn.lochv.flutter_qr_scanner/native_view",
+            QrScannerViewFactory(binding.binaryMessenger)
+        )
     }
+
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: MethodChannel.Result) {
         when (call.method) {
