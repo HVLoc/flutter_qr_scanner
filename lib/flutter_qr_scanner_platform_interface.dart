@@ -23,7 +23,7 @@ abstract class FlutterQrScannerPlatform extends PlatformInterface {
     throw UnimplementedError('scanQR() has not been implemented.');
   }
 
-  Future<String?> scanQRFromImage(String filePath) {
+  Future<Map?> scanQRFromImage(String filePath) {
     throw UnimplementedError('scanQRFromImage() has not been implemented.');
   }
 }

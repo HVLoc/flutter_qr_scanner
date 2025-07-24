@@ -44,7 +44,7 @@ class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
     if (picked != null) {
       final result = await FlutterQrScanner.scanQRFromImage(picked.path);
       setState(() {
-        fromImage = result;
+        fromImage = result?['content'] as String?;
       });
     }
   }

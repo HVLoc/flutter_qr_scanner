@@ -7,7 +7,7 @@ class FlutterQrScanner {
   }
 
   /// Quét mã QR từ file ảnh (path)
-  static Future<String?> scanQRFromImage(String filePath) async {
+  static Future<Map?> scanQRFromImage(String filePath) async {
     return await FlutterQrScannerPlatform.instance.scanQRFromImage(filePath);
   }
 
