@@ -50,7 +50,6 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
                 val path = call.argument<String>("path")
                 val decoded = path?.let { QrScanHelper.scanQRFromImagePath(it) }
                 if (decoded != null) {
-    
                     result.success(decoded)
                 } else {
                     result.error("QR_NOT_FOUND", "Không tìm thấy mã QR trong ảnh", null)
@@ -81,6 +80,7 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
             this.result?.success(resultMap)
             return true
         }
+        this.result?.error("QR_NOT_FOUND", "Không tìm thấy mã QR", null)
         return false
     }
 
