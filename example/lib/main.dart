@@ -30,7 +30,7 @@ class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
   String? fromImage;
 
   Future<void> _scanQRCode() async {
-    final result = await FlutterQrScanner.scanQR();
+    final result = await FlutterQrScanner.scanQR(showGallery: true);
     if (result != null) {
       setState(() {
         content = result['content'] as String?;

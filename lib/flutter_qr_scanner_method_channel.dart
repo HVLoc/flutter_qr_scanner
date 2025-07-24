@@ -16,8 +16,9 @@ class MethodChannelFlutterQrScanner extends FlutterQrScannerPlatform {
   }
 
   @override
-  Future<Map?> scanQR() async {
-    final result = await methodChannel.invokeMethod<Map>('scanQR');
+  Future<Map?> scanQR({bool showGallery = false}) async {
+    final result = await methodChannel
+        .invokeMethod<Map>('scanQR', {"showGallery": showGallery});
     return result;
   }
 
