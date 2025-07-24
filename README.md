@@ -60,10 +60,14 @@ import 'package:flutter_qr_scanner/flutter_qr_scanner.dart';
 #### 2. Scan via camera
 
 ```dart
-final result = await FlutterQrScanner.scanQR();
+final result = await FlutterQrScanner.scanQR(
+  showGallery: true, // Hiển thị chức năng chọn ảnh trong máy
+);
+
 if (result != null) {
   print('QR content: ${result["content"]}');
 }
+
 ```
 
 #### 3. Scan from image
@@ -95,10 +99,10 @@ if (result != null) {
 Make sure you add the following to your `ios/Runner/Info.plist`:
 
 ```xml
-<key>NSCameraUsageDescription</key>
-<string>We need camera access to scan QR codes</string>
-<key>NSPhotoLibraryUsageDescription</key>
-<string>We need access to your gallery to scan from image</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Cho phép ứng dụng sử dụng camera để quét mã QR</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Cho phép ứng dụng truy cập thư viện ảnh để quét mã QR từ ảnh</string>
 ```
 
 ---
