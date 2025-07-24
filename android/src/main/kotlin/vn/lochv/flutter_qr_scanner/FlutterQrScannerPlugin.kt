@@ -22,6 +22,7 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
     private var activity: Activity? = null
     private var result: MethodChannel.Result? = null
     private var pendingMethodCall: MethodCall? = null
+    private var showGallery: Boolean = false
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, "flutter_qr_scanner")
@@ -33,6 +34,8 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
             "scanQR" -> {
                 this.result = result
                 this.pendingMethodCall = call
+
+                showGallery = call.argument<Boolean>("showGallery") ?: false
 
                 activity?.let {
                     val permission = ContextCompat.checkSelfPermission(it, Manifest.permission.CAMERA)
@@ -61,12 +64,9 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
     }
 
     private fun startQrScanner(activity: Activity) {
-        val integrator = IntentIntegrator(activity)
-        integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE)
-        integrator.setPrompt("Scan a QR code")
-        integrator.setBeepEnabled(false)
-        integrator.captureActivity = PortraitCaptureActivity::class.java
-        integrator.initiateScan()
+        val intent = Intent(activity, PortraitCaptureActivity::class.java)
+        intent.putExtra("showGallery", showGallery)
+        activity.startActivityForResult(intent, IntentIntegrator.REQUEST_CODE)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {

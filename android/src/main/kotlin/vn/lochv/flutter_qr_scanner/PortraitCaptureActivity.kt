@@ -28,12 +28,14 @@ class PortraitCaptureActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val showGallery = intent?.getBooleanExtra("showGallery", false) == true
+
         barcodeView = CompoundBarcodeView(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
-            statusView.text = ""
+            statusView.text = if (showGallery) "" else "Đưa mã QR vào khung để quét"
             cameraSettings.focusMode = CameraSettings.FocusMode.CONTINUOUS
         }
 
@@ -45,6 +47,7 @@ class PortraitCaptureActivity : AppCompatActivity() {
                 finish()
             }
         }
+
         val flashButton = ImageView(this).apply {
             setImageResource(R.drawable.ic_flash_on)
             setPadding(50, 50, 50, 50)
@@ -59,6 +62,7 @@ class PortraitCaptureActivity : AppCompatActivity() {
                 }
             }
         }
+
         val pickImageButton = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -81,6 +85,7 @@ class PortraitCaptureActivity : AppCompatActivity() {
 
             addView(icon)
             addView(label)
+            visibility = if (showGallery) LinearLayout.VISIBLE else LinearLayout.GONE
         }
 
         val layout = FrameLayout(this).apply {
@@ -88,6 +93,7 @@ class PortraitCaptureActivity : AppCompatActivity() {
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT
             )
+
             addView(barcodeView)
 
             addView(backButton, FrameLayout.LayoutParams(
@@ -103,7 +109,7 @@ class PortraitCaptureActivity : AppCompatActivity() {
             addView(pickImageButton, FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {  
+            ).apply {
                 gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                 bottomMargin = 60
             })
