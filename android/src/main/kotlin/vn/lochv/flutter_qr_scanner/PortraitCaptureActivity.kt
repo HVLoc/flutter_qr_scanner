@@ -41,7 +41,9 @@ class PortraitCaptureActivity : AppCompatActivity() {
 
         // Nút bật/tắt đèn flash
         val flashButton = ImageView(this).apply {
-            setImageResource(android.R.drawable.ic_menu_manage)
+            setImageResource(
+                if (isTorchOn) R.drawable.ic_flash_on else R.drawable.ic_flash_off
+            )
             setPadding(50, 50, 50, 50)
             setOnClickListener {
                 isTorchOn = !isTorchOn

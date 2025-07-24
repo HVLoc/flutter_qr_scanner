@@ -4,12 +4,9 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.zxing.*
-import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.integration.android.IntentIntegrator
 import com.google.zxing.integration.android.IntentResult
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -51,8 +48,13 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
 
             "scanQRFromImage" -> {
                 val path = call.argument<String>("path")
-                val decoded = path?.let { scanQRFromImagePath(it) }
-                result.success(decoded)
+                val decoded = path?.let { QrScanHelper.scanQRFromImagePath(it) }
+                if (decoded != null) {
+    
+                    result.success(decoded)
+                } else {
+                    result.error("QR_NOT_FOUND", "Không tìm thấy mã QR trong ảnh", null)
+                }
             }
 
             else -> result.notImplemented()
@@ -66,21 +68,6 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
         integrator.setBeepEnabled(false)
         integrator.captureActivity = PortraitCaptureActivity::class.java
         integrator.initiateScan()
-    }
-
-    private fun scanQRFromImagePath(imagePath: String): String? {
-        val bitmap = BitmapFactory.decodeFile(imagePath) ?: return null
-        val intArray = IntArray(bitmap.width * bitmap.height)
-        bitmap.getPixels(intArray, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        val source = RGBLuminanceSource(bitmap.width, bitmap.height, intArray)
-        val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
-        return try {
-            val reader = MultiFormatReader()
-            val result = reader.decode(binaryBitmap)
-            result.text
-        } catch (e: Exception) {
-            null
-        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
@@ -101,7 +88,6 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
         activity = binding.activity
         binding.addActivityResultListener(this)
 
-        // 👇 Listen permission result manually
         binding.addRequestPermissionsResultListener { requestCode, permissions, grantResults ->
             if (requestCode == 2001) {
                 if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
