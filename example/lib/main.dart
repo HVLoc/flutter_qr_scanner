@@ -162,7 +162,7 @@ class _CustomQRScannerScreenState extends State<CustomQRScannerScreen> {
               child: ElevatedButton.icon(
                 onPressed: _openGallery,
                 icon: const Icon(Icons.photo_library),
-                label: const Text('Hoàng LĐ Gà'),
+                label: const Text('Chọn ảnh trong máy'),
               ),
             ),
           ),

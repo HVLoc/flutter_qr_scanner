@@ -1,34 +1,38 @@
-
-## 📦 Flutter QR Scanner Plugin
-
-A Flutter plugin for scanning QR codes using the device camera and decoding QR codes from images.
-Supports customizable overlay UI, autofocus, flash toggle, and a manual close button.
-(Android & iOS native implementation)
+Dưới đây là bản cập nhật hoàn chỉnh của file `README.md` cho plugin **`flutter_qr_scanner`**, kết hợp nội dung gốc bạn đưa và bổ sung các phần còn thiếu:
 
 ---
 
-### 🚀 Features
+````markdown
+# 📦 Flutter QR Scanner Plugin
 
-* 📷 Scan QR code via camera
-* 🖼️ Decode QR code from an image (gallery)
+A Flutter plugin for scanning QR codes and barcodes using the device camera or decoding from images.  
+Supports native camera view (`PlatformView`), custom overlay UI in Flutter, flash toggle, autofocus, and back button.  
+Supports both **iOS (Vision Framework)** and **Android (ZXing)**.
+
+---
+
+## 🚀 Features
+
+* 📷 Scan QR/Barcode via native camera (custom overlay supported)
+* 🖼️ Decode QR/Barcode from an image (gallery or file path)
 * 🔦 Flashlight toggle
-* 🎯 Focus box with blur mask overlay
 * 🎯 Autofocus (continuous)
+* 📐 Custom scan box overlay
 * ❌ Close/back button
-* ✅ Returns content + format on success
+* ✅ Returns content, format, raw bytes, error correction level (if available)
 
 ---
 
-### 📱 Platform Support
+## 📱 Platform Support
 
-| Platform | Support |
-| -------- | ------- |
-| Android  | ✅ Yes   |
-| iOS      | ✅ Yes   |
+| Platform | Support | Framework |
+|----------|---------|-----------|
+| Android  | ✅ Yes  | ZXing     |
+| iOS      | ✅ Yes  | VisionKit |
 
 ---
 
-### 🛠️ Installation
+## 🛠️ Installation
 
 Add this to your `pubspec.yaml`:
 
@@ -36,9 +40,9 @@ Add this to your `pubspec.yaml`:
 dependencies:
   flutter_qr_scanner:
     path: ../flutter_qr_scanner
-```
+````
 
-Or from Git (if hosted):
+Or if hosted on GitHub:
 
 ```yaml
 dependencies:
@@ -49,28 +53,31 @@ dependencies:
 
 ---
 
-### 🧪 Usage
+## 🧪 Usage
 
-#### 1. Import the package
+### 1. Import the package
 
 ```dart
 import 'package:flutter_qr_scanner/flutter_qr_scanner.dart';
 ```
 
-#### 2. Scan via camera
+---
+
+### 2. Quick scan via native camera
 
 ```dart
 final result = await FlutterQrScanner.scanQR(
-  showGallery: true, // Hiển thị chức năng chọn ảnh trong máy
+  showGallery: true, // Show gallery button
 );
 
 if (result != null) {
   print('QR content: ${result["content"]}');
 }
-
 ```
 
-#### 3. Scan from image
+---
+
+### 3. Scan from image (image picker or file path)
 
 ```dart
 final result = await FlutterQrScanner.scanQRFromImage();
@@ -79,9 +86,51 @@ if (result != null) {
 }
 ```
 
+You can also pass a file path:
+
+```dart
+final result = await FlutterQrScanner.scanQRFromImage('/path/to/qr_image.png');
+```
+
 ---
 
-### 🧰 Result Format
+### 4. Embed custom camera with Flutter overlay
+
+Use `QrScannerPage` in your widget tree to show the native camera as `PlatformView`, and customize overlay freely:
+
+```dart
+QrScannerPage(
+  onScanResult: (result) {
+    Navigator.pop(context, result);
+  },
+)
+```
+
+Overlay Flutter UI:
+
+```dart
+Stack(
+  children: [
+    QrScannerPage(
+      onScanResult: (result) {
+        Navigator.pop(context, result);
+      },
+    ),
+    Positioned(
+      top: 40,
+      left: 16,
+      child: IconButton(
+        icon: Icon(Icons.arrow_back, color: Colors.white),
+        onPressed: () => Navigator.pop(context),
+      ),
+    ),
+  ],
+)
+```
+
+---
+
+## 🧰 Result Format
 
 ```json
 {
@@ -94,40 +143,64 @@ if (result != null) {
 
 ---
 
-### 📸 iOS Configuration
+## 📸 iOS Configuration
 
-Make sure you add the following to your `ios/Runner/Info.plist`:
+Ensure your `ios/Runner/Info.plist` contains:
 
 ```xml
-	<key>NSCameraUsageDescription</key>
-	<string>Cho phép ứng dụng sử dụng camera để quét mã QR</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Cho phép ứng dụng truy cập thư viện ảnh để quét mã QR từ ảnh</string>
+<key>NSCameraUsageDescription</key>
+<string>Cho phép ứng dụng sử dụng camera để quét mã QR</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Cho phép ứng dụng truy cập thư viện ảnh để quét mã QR từ ảnh</string>
 ```
 
 ---
 
-### 💡 Customization
+## 🔧 Android Configuration
 
-* QR scan overlay supports:
+Add required permissions in `AndroidManifest.xml`:
 
-  * Custom blur with transparent focus box
-  * Autofocus (continuous)
-  * Flashlight toggle button
-  * Close/back button
+```xml
+<uses-permission android:name="android.permission.CAMERA"/>
+```
 
-No additional configuration needed – UI is native and optimized.
-
----
-
-### 🔒 Permissions
-
-* Android: Camera, Storage
-* iOS: Camera, Photo Library (if using `scanQRFromImage`)
+Ensure your `minSdkVersion` is at least 21.
 
 ---
 
-### 📄 License
+## 📷 Barcode Support
+
+By default, both QR and barcodes (EAN, CODE\_128, etc.) are supported.
+
+If you only want QR codes, you can configure detection mode (in a future update).
+
+---
+
+## ⚡ Performance Notes
+
+* Barcode support may slightly affect scanning performance on low-end devices.
+* VisionKit (iOS) is fast and optimized for both QR & barcode.
+* Autofocus is enabled by default and runs continuously.
+
+---
+
+## 🛡️ Permissions
+
+| Platform | Required Permissions                                         |
+| -------- | ------------------------------------------------------------ |
+| Android  | `CAMERA`,                            |
+| iOS      | `NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription` |
+
+---
+
+## 🧑‍💻 Maintainer
+
+Developed & maintained by [HVLoc](https://github.com/HVLoc)
+
+---
+
+## 📄 License
 
 MIT License – feel free to use and modify.
 
+```
