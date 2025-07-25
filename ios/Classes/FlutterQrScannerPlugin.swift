@@ -2,14 +2,16 @@ import Flutter
 import UIKit
 import AVFoundation
 import CoreImage
+import Vision
 
-public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataOutputObjectsDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureVideoDataOutputSampleBufferDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
     var result: FlutterResult?
     var captureSession: AVCaptureSession?
     var previewLayer: AVCaptureVideoPreviewLayer?
     var scanViewController: UIViewController?
     var torchOn = false
     var showGalleryButton = true
+    var isProcessingFrame = false
 
     public static func register(with registrar: FlutterPluginRegistrar) {
         let channel = FlutterMethodChannel(name: "flutter_qr_scanner", binaryMessenger: registrar.messenger())
@@ -39,30 +41,35 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
     }
 
     private func scanQRCodeFromImage(path: String, flutterResult: @escaping FlutterResult) {
-        guard let image = UIImage(contentsOfFile: path),
-              let ciImage = CIImage(image: image) else {
+        guard let image = UIImage(contentsOfFile: path), let cgImage = image.cgImage else {
             flutterResult(nil)
             return
         }
 
-        let context = CIContext()
-        let options = [CIDetectorAccuracy: CIDetectorAccuracyHigh]
-        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: context, options: options)
-
-        let features = detector?.features(in: ciImage) ?? []
-        for feature in features {
-            if let qrFeature = feature as? CIQRCodeFeature, let message = qrFeature.messageString {
-                flutterResult([
-                    "content": message,
-                    "format": "QR_CODE",
-                    "rawBytes": "",
-                    "errorCorrectionLevel": ""
-                ])
-                return
+        let request = VNDetectBarcodesRequest { request, error in
+            if let results = request.results as? [VNBarcodeObservation],
+               let qr = results.first(where: { $0.symbology == .QR }),
+               let payload = qr.payloadStringValue {
+                DispatchQueue.main.async {
+                    flutterResult([
+                        "content": payload,
+                        "format": "QR_CODE",
+                        "rawBytes": "",
+                        "errorCorrectionLevel": ""
+                    ])
+                }
+            } else {
+                DispatchQueue.main.async {
+                    flutterResult(nil)
+                }
             }
         }
+        request.symbologies = [.QR]
 
-        flutterResult(nil)
+        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? handler.perform([request])
+        }
     }
 
     private func startScanning() {
@@ -82,25 +89,21 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
 
         captureSession!.addInput(videoInput)
 
-        // 🔍 Autofocus liên tục
         if videoCaptureDevice.isFocusModeSupported(.continuousAutoFocus) {
             try? videoCaptureDevice.lockForConfiguration()
             videoCaptureDevice.focusMode = .continuousAutoFocus
             videoCaptureDevice.unlockForConfiguration()
         }
 
-        // 🎯 Output: chỉ nhận QR
-        let metadataOutput = AVCaptureMetadataOutput()
-        if captureSession!.canAddOutput(metadataOutput) {
-            captureSession!.addOutput(metadataOutput)
-            metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-            metadataOutput.metadataObjectTypes = [.qr]
+        let videoOutput = AVCaptureVideoDataOutput()
+        videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "qr.scan.queue"))
+        if captureSession!.canAddOutput(videoOutput) {
+            captureSession!.addOutput(videoOutput)
         } else {
             self.result?(nil)
             return
         }
 
-        // Tạo màn hình quét
         let scanVC = UIViewController()
         scanVC.view.backgroundColor = UIColor.black
 
@@ -109,7 +112,6 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
         previewLayer?.videoGravity = .resizeAspectFill
         scanVC.view.layer.addSublayer(previewLayer!)
 
-        // ⚙️ Tạo overlay, instruction, nút
         setupBlurOverlay(in: scanVC)
         setupInstructionAndButtons(in: scanVC)
 
@@ -120,6 +122,40 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
         }
 
         self.scanViewController = scanVC
+    }
+
+    public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        if isProcessingFrame { return }
+        isProcessingFrame = true
+
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            isProcessingFrame = false
+            return
+        }
+
+        let request = VNDetectBarcodesRequest { [weak self] request, error in
+            guard let self = self else { return }
+            defer { self.isProcessingFrame = false }
+
+            if let results = request.results as? [VNBarcodeObservation],
+               let qr = results.first(where: { $0.symbology == .QR }),
+               let payload = qr.payloadStringValue {
+                self.captureSession?.stopRunning()
+                DispatchQueue.main.async {
+                    self.scanViewController?.dismiss(animated: true) {
+                        self.result?([
+                            "content": payload,
+                            "format": "QR_CODE",
+                            "rawBytes": "",
+                            "errorCorrectionLevel": ""
+                        ])
+                    }
+                }
+            }
+        }
+        request.symbologies = [.QR]
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .right, options: [:])
+        try? handler.perform([request])
     }
     
     private func setupBlurOverlay(in viewController: UIViewController) {
@@ -255,42 +291,52 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
     }
 
     public func imagePickerController(_ picker: UIImagePickerController,
-                                      didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-        picker.dismiss(animated: true, completion: nil)
+                                          didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            picker.dismiss(animated: true, completion: nil)
 
-        guard let image = info[.originalImage] as? UIImage else {
-            self.result?(nil)
-            return
-        }
-
-        guard let ciImage = CIImage(image: image) else {
-            self.result?(nil)
-            return
-        }
-
-        let context = CIContext()
-        let options = [CIDetectorAccuracy: CIDetectorAccuracyHigh]
-        let detector = CIDetector(ofType: CIDetectorTypeQRCode, context: context, options: options)
-
-        let features = detector?.features(in: ciImage) ?? []
-        for feature in features {
-            if let qrFeature = feature as? CIQRCodeFeature, let message = qrFeature.messageString {
-                self.scanViewController?.dismiss(animated: true) {
-                    self.result?([
-                        "content": message,
-                        "format": "QR_CODE",
-                        "rawBytes": "",
-                        "errorCorrectionLevel": ""
-                    ])
-                }
+            guard let image = info[.originalImage] as? UIImage,
+                  let cgImage = image.cgImage else {
+                self.result?(nil)
                 return
             }
-        }
 
-        self.scanViewController?.dismiss(animated: true) {
-            self.result?(nil)
+            let request = VNDetectBarcodesRequest { request, error in
+                if let results = request.results as? [VNBarcodeObservation],
+                   let qr = results.first(where: { $0.symbology == .QR }),
+                   let payload = qr.payloadStringValue {
+                    DispatchQueue.main.async {
+                        self.scanViewController?.dismiss(animated: true) {
+                            self.result?([
+                                "content": payload,
+                                "format": "QR_CODE",
+                                "rawBytes": "",
+                                "errorCorrectionLevel": ""
+                            ])
+                        }
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.scanViewController?.dismiss(animated: true) {
+                            self.result?(nil)
+                        }
+                    }
+                }
+            }
+            request.symbologies = [.QR]
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    try handler.perform([request])
+                } catch {
+                    DispatchQueue.main.async {
+                        self.scanViewController?.dismiss(animated: true) {
+                            self.result?(nil)
+                        }
+                    }
+                }
+            }
         }
-    }
 
     public func metadataOutput(_ output: AVCaptureMetadataOutput,
                                 didOutput metadataObjects: [AVMetadataObject],
