@@ -6,7 +6,6 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var resultCallback: ((String) -> Void)?
-//    private let qrView: UIView
     private let qrViewContainer: QrPreviewContainerView
 
 
@@ -18,8 +17,6 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
         self.resultCallback = resultCallback
         super.init()
         
-//        qrView.backgroundColor = UIColor.red   tạm thời để test xem view có lên không
-
         checkCameraPermissionAndStart()
     }
 
@@ -45,40 +42,55 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
     }
 
     private func setupCamera() {
-            guard let device = AVCaptureDevice.default(for: .video) else { return }
+        guard let device = AVCaptureDevice.default(for: .video) else { return }
 
-            do {
-                let input = try AVCaptureDeviceInput(device: device)
-                let session = AVCaptureSession()
+        do {
+            let input = try AVCaptureDeviceInput(device: device)
+            let session = AVCaptureSession()
 
-                if session.canAddInput(input) { session.addInput(input) }
-
-                let output = AVCaptureMetadataOutput()
-                if session.canAddOutput(output) {
-                    session.addOutput(output)
-                    output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                    output.metadataObjectTypes = [.qr]
-                }
-
-                self.captureSession = session
-
-                let preview = AVCaptureVideoPreviewLayer(session: session)
-                preview.videoGravity = .resizeAspectFill
-                self.previewLayer = preview
-
-                DispatchQueue.main.async {
-                    self.qrViewContainer.setPreviewLayer(preview)
-                }
-
-                DispatchQueue.global(qos: .userInitiated).async {
-                    session.startRunning()
-                }
-
-            } catch {
-                print("Error setting up camera: \(error)")
+            // Cấu hình autofocus liên tục nếu có hỗ trợ
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                try? device.lockForConfiguration()
+                device.focusMode = .continuousAutoFocus
+                device.unlockForConfiguration()
             }
-        
+
+            // Thêm input
+            if session.canAddInput(input) {
+                session.addInput(input)
+            }
+
+            // Thêm output quét mã QR
+            let output = AVCaptureMetadataOutput()
+            if session.canAddOutput(output) {
+                session.addOutput(output)
+                output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+                output.metadataObjectTypes = [.qr]  // ✅ chỉ quét mã QR
+            }
+
+            // Gán session
+            self.captureSession = session
+
+            // Cấu hình preview layer
+            let preview = AVCaptureVideoPreviewLayer(session: session)
+            preview.videoGravity = .resizeAspectFill
+            self.previewLayer = preview
+
+            // Gán previewLayer cho view container (nếu có)
+            DispatchQueue.main.async {
+                self.qrViewContainer.setPreviewLayer(preview)
+            }
+
+            // Bắt đầu chạy session
+            DispatchQueue.global(qos: .userInitiated).async {
+                session.startRunning()
+            }
+
+        } catch {
+            print("Error setting up camera: \(error)")
+        }
     }
+
 
     func metadataOutput(_ output: AVCaptureMetadataOutput,
                         didOutput metadataObjects: [AVMetadataObject],
@@ -97,12 +109,17 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
     }
 }
 
-
 class QrPreviewContainerView: UIView {
     private var previewLayer: AVCaptureVideoPreviewLayer?
 
     func setPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) {
+        // Loại bỏ layer cũ nếu có
+        self.previewLayer?.removeFromSuperlayer()
+
         self.previewLayer = layer
+        layer.frame = self.bounds
+        layer.videoGravity = .resizeAspectFill
+
         self.layer.insertSublayer(layer, at: 0)
         self.setNeedsLayout()
     }

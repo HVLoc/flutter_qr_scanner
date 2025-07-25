@@ -79,14 +79,17 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
             self.result?(nil)
             return
         }
+
         captureSession!.addInput(videoInput)
 
+        // 🔍 Autofocus liên tục
         if videoCaptureDevice.isFocusModeSupported(.continuousAutoFocus) {
             try? videoCaptureDevice.lockForConfiguration()
             videoCaptureDevice.focusMode = .continuousAutoFocus
             videoCaptureDevice.unlockForConfiguration()
         }
 
+        // 🎯 Output: chỉ nhận QR
         let metadataOutput = AVCaptureMetadataOutput()
         if captureSession!.canAddOutput(metadataOutput) {
             captureSession!.addOutput(metadataOutput)
@@ -97,6 +100,7 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
             return
         }
 
+        // Tạo màn hình quét
         let scanVC = UIViewController()
         scanVC.view.backgroundColor = UIColor.black
 
@@ -105,105 +109,9 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
         previewLayer?.videoGravity = .resizeAspectFill
         scanVC.view.layer.addSublayer(previewLayer!)
 
-        // ✅ Blur overlay
-        let blurEffect = UIBlurEffect(style: .dark)
-        let blurView = UIVisualEffectView(effect: blurEffect)
-        blurView.alpha = 0.4
-        blurView.frame = scanVC.view.bounds
-        scanVC.view.addSubview(blurView)
-
-        let maskLayer = CAShapeLayer()
-        let path = UIBezierPath(rect: scanVC.view.bounds)
-        let focusRect = CGRect(x: (scanVC.view.bounds.width - 250) / 2,
-                               y: scanVC.view.bounds.height * 0.25,
-                               width: 250, height: 250)
-        path.append(UIBezierPath(rect: focusRect).reversing())
-        maskLayer.path = path.cgPath
-        blurView.layer.mask = maskLayer
-
-        let focusView = UIView(frame: focusRect)
-        focusView.layer.borderColor = UIColor.green.cgColor
-        focusView.layer.borderWidth = 2
-        focusView.backgroundColor = .clear
-        scanVC.view.addSubview(focusView)
-
-        // Instruction
-        let label = UILabel()
-        label.text = "Đưa mã QR vào khung để quét"
-        label.textColor = .white
-        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-        scanVC.view.addSubview(label)
-        NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: scanVC.view.centerXAnchor),
-            label.topAnchor.constraint(equalTo: focusView.bottomAnchor, constant: 16)
-        ])
-
-        // Back button
-        let backButton = UIButton(type: .system)
-        if #available(iOS 13.0, *) {
-            backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-        } else {
-            // Fallback on earlier versions
-        }
-        backButton.tintColor = .white
-        backButton.translatesAutoresizingMaskIntoConstraints = false
-        backButton.addTarget(self, action: #selector(dismissScanner), for: .touchUpInside)
-        scanVC.view.addSubview(backButton)
-        NSLayoutConstraint.activate([
-            backButton.topAnchor.constraint(equalTo: scanVC.view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            backButton.leadingAnchor.constraint(equalTo: scanVC.view.leadingAnchor, constant: 16)
-        ])
-
-        // Flash button
-        let flashButton = UIButton(type: .system)
-        if #available(iOS 13.0, *) {
-            flashButton.setImage(UIImage(systemName: "bolt"), for: .normal)
-        } else {
-            // Fallback on earlier versions
-        }
-        flashButton.tintColor = .white
-        flashButton.translatesAutoresizingMaskIntoConstraints = false
-        flashButton.addTarget(self, action: #selector(toggleFlash), for: .touchUpInside)
-        scanVC.view.addSubview(flashButton)
-        NSLayoutConstraint.activate([
-            flashButton.topAnchor.constraint(equalTo: scanVC.view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            flashButton.trailingAnchor.constraint(equalTo: scanVC.view.trailingAnchor, constant: -16)
-        ])
-
-        // 📸 Gallery Button
-        if showGalleryButton {
-            let galleryButton = UIButton(type: .system)
-            if #available(iOS 13.0, *) {
-                galleryButton.setImage(UIImage(systemName: "photo"), for: .normal)
-            } else {
-                // Fallback on earlier versions
-            }
-            galleryButton.tintColor = .white
-            galleryButton.translatesAutoresizingMaskIntoConstraints = false
-            galleryButton.addTarget(self, action: #selector(openGallery), for: .touchUpInside)
-            scanVC.view.addSubview(galleryButton)
-            NSLayoutConstraint.activate([
-                galleryButton.bottomAnchor.constraint(equalTo: scanVC.view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
-                galleryButton.centerXAnchor.constraint(equalTo: scanVC.view.centerXAnchor),
-                galleryButton.widthAnchor.constraint(equalToConstant: 50),
-                galleryButton.heightAnchor.constraint(equalToConstant: 50)
-            ])
-            // Instruction
-            let labelGallery = UILabel()
-            labelGallery.text = "Chọn từ ảnh trong máy"
-            labelGallery.textColor = .white
-            labelGallery.font = UIFont.systemFont(ofSize: 16, weight: .medium)
-            labelGallery.textAlignment = .center
-            labelGallery.translatesAutoresizingMaskIntoConstraints = false
-            scanVC.view.addSubview(labelGallery)
-            NSLayoutConstraint.activate([
-                labelGallery.centerXAnchor.constraint(equalTo: scanVC.view.centerXAnchor),
-                labelGallery.topAnchor.constraint(equalTo: galleryButton.bottomAnchor, constant: 16)
-            ])
-
-        }
+        // ⚙️ Tạo overlay, instruction, nút
+        setupBlurOverlay(in: scanVC)
+        setupInstructionAndButtons(in: scanVC)
 
         rootVC.present(scanVC, animated: true) {
             DispatchQueue.global(qos: .userInitiated).async {
@@ -213,6 +121,110 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
 
         self.scanViewController = scanVC
     }
+    
+    private func setupBlurOverlay(in viewController: UIViewController) {
+        let blurEffect = UIBlurEffect(style: .dark)
+        let blurView = UIVisualEffectView(effect: blurEffect)
+        blurView.alpha = 0.4
+        blurView.frame = viewController.view.bounds
+        viewController.view.addSubview(blurView)
+
+        let maskLayer = CAShapeLayer()
+        let path = UIBezierPath(rect: viewController.view.bounds)
+        let focusRect = CGRect(x: (viewController.view.bounds.width - 250) / 2,
+                               y: viewController.view.bounds.height * 0.25,
+                               width: 250, height: 250)
+        path.append(UIBezierPath(rect: focusRect).reversing())
+        maskLayer.path = path.cgPath
+        blurView.layer.mask = maskLayer
+
+        let focusView = UIView(frame: focusRect)
+        focusView.layer.borderColor = UIColor.green.cgColor
+        focusView.layer.borderWidth = 2
+        focusView.backgroundColor = .clear
+        viewController.view.addSubview(focusView)
+    }
+
+    private func setupInstructionAndButtons(in viewController: UIViewController) {
+        // Focus khung QR
+        let focusRect = CGRect(x: (viewController.view.bounds.width - 250) / 2,
+                               y: viewController.view.bounds.height * 0.25,
+                               width: 250, height: 250)
+
+        // Text hướng dẫn
+        let label = UILabel()
+        label.text = "Đưa mã QR vào khung để quét"
+        label.textColor = .white
+        label.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
+        viewController.view.addSubview(label)
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
+            label.topAnchor.constraint(equalTo: viewController.view.topAnchor, constant: focusRect.maxY + 16)
+        ])
+
+        // Nút back
+        let backButton = UIButton(type: .system)
+        if #available(iOS 13.0, *) {
+            backButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        }
+        backButton.tintColor = .white
+        backButton.translatesAutoresizingMaskIntoConstraints = false
+        backButton.addTarget(self, action: #selector(dismissScanner), for: .touchUpInside)
+        viewController.view.addSubview(backButton)
+        NSLayoutConstraint.activate([
+            backButton.topAnchor.constraint(equalTo: viewController.view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            backButton.leadingAnchor.constraint(equalTo: viewController.view.leadingAnchor, constant: 16)
+        ])
+
+        // Nút flash
+        let flashButton = UIButton(type: .system)
+        if #available(iOS 13.0, *) {
+            flashButton.setImage(UIImage(systemName: "bolt"), for: .normal)
+        }
+        flashButton.tintColor = .white
+        flashButton.translatesAutoresizingMaskIntoConstraints = false
+        flashButton.addTarget(self, action: #selector(toggleFlash), for: .touchUpInside)
+        viewController.view.addSubview(flashButton)
+        NSLayoutConstraint.activate([
+            flashButton.topAnchor.constraint(equalTo: viewController.view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            flashButton.trailingAnchor.constraint(equalTo: viewController.view.trailingAnchor, constant: -16)
+        ])
+
+        // Nút chọn ảnh (nếu có bật)
+        if showGalleryButton {
+            let galleryButton = UIButton(type: .system)
+            if #available(iOS 13.0, *) {
+                galleryButton.setImage(UIImage(systemName: "photo"), for: .normal)
+            }
+            galleryButton.tintColor = .white
+            galleryButton.translatesAutoresizingMaskIntoConstraints = false
+            galleryButton.addTarget(self, action: #selector(openGallery), for: .touchUpInside)
+            viewController.view.addSubview(galleryButton)
+            NSLayoutConstraint.activate([
+                galleryButton.bottomAnchor.constraint(equalTo: viewController.view.safeAreaLayoutGuide.bottomAnchor, constant: -20),
+                galleryButton.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
+                galleryButton.widthAnchor.constraint(equalToConstant: 50),
+                galleryButton.heightAnchor.constraint(equalToConstant: 50)
+            ])
+
+            let labelGallery = UILabel()
+            labelGallery.text = "Chọn từ ảnh trong máy"
+            labelGallery.textColor = .white
+            labelGallery.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+            labelGallery.textAlignment = .center
+            labelGallery.translatesAutoresizingMaskIntoConstraints = false
+            viewController.view.addSubview(labelGallery)
+            NSLayoutConstraint.activate([
+                labelGallery.centerXAnchor.constraint(equalTo: viewController.view.centerXAnchor),
+                labelGallery.topAnchor.constraint(equalTo: galleryButton.bottomAnchor, constant: 16)
+            ])
+        }
+    }
+
+    
+
 
     @objc private func dismissScanner() {
         captureSession?.stopRunning()
