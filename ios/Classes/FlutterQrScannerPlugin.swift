@@ -15,6 +15,8 @@ public class FlutterQrScannerPlugin: NSObject, FlutterPlugin, AVCaptureMetadataO
         let channel = FlutterMethodChannel(name: "flutter_qr_scanner", binaryMessenger: registrar.messenger())
         let instance = FlutterQrScannerPlugin()
         registrar.addMethodCallDelegate(instance, channel: channel)
+        let factory = QrScannerViewFactory(messenger: registrar.messenger())
+        registrar.register(factory, withId: "vn.lochv.flutter_qr_scanner/native_view")
     }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
