@@ -1,13 +1,16 @@
 import Flutter
 import UIKit
 import AVFoundation
+import Vision
 
-class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjectsDelegate {
+class QrScannerView: NSObject, FlutterPlatformView {
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var videoOutput: AVCaptureVideoDataOutput?
     private var resultCallback: ((String) -> Void)?
     private let qrViewContainer: QrPreviewContainerView
-
+    private var isDetected = false
+    private let visionQueue = DispatchQueue(label: "qr.vision.queue")
 
     init(frame: CGRect,
          messenger: FlutterBinaryMessenger,
@@ -16,7 +19,7 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
         self.qrViewContainer = QrPreviewContainerView()
         self.resultCallback = resultCallback
         super.init()
-        
+
         checkCameraPermissionAndStart()
     }
 
@@ -47,60 +50,67 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
         do {
             let input = try AVCaptureDeviceInput(device: device)
             let session = AVCaptureSession()
+            session.sessionPreset = .high
 
-            // Cấu hình autofocus liên tục nếu có hỗ trợ
             if device.isFocusModeSupported(.continuousAutoFocus) {
                 try? device.lockForConfiguration()
                 device.focusMode = .continuousAutoFocus
                 device.unlockForConfiguration()
             }
 
-            // Thêm input
             if session.canAddInput(input) {
                 session.addInput(input)
             }
 
-            // Thêm output quét mã QR
-            let output = AVCaptureMetadataOutput()
+            // Video output
+            let output = AVCaptureVideoDataOutput()
+            output.videoSettings = [
+                (kCVPixelBufferPixelFormatTypeKey as String): kCVPixelFormatType_32BGRA
+            ]
+            output.setSampleBufferDelegate(self, queue: visionQueue)
+
             if session.canAddOutput(output) {
                 session.addOutput(output)
-                output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
-                output.metadataObjectTypes = [.qr]  // ✅ chỉ quét mã QR
             }
 
-            // Gán session
+            self.videoOutput = output
             self.captureSession = session
 
-            // Cấu hình preview layer
             let preview = AVCaptureVideoPreviewLayer(session: session)
             preview.videoGravity = .resizeAspectFill
             self.previewLayer = preview
 
-            // Gán previewLayer cho view container (nếu có)
             DispatchQueue.main.async {
                 self.qrViewContainer.setPreviewLayer(preview)
             }
 
-            // Bắt đầu chạy session
             DispatchQueue.global(qos: .userInitiated).async {
                 session.startRunning()
             }
 
         } catch {
-            print("Error setting up camera: \(error)")
+            print("Camera error: \(error)")
         }
     }
 
+    private func handleVisionRequest(pixelBuffer: CVPixelBuffer) {
+        let request = VNDetectBarcodesRequest { request, error in
+            guard error == nil else { return }
 
-    func metadataOutput(_ output: AVCaptureMetadataOutput,
-                        didOutput metadataObjects: [AVMetadataObject],
-                        from connection: AVCaptureConnection) {
-        if let metadataObject = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
-           metadataObject.type == .qr,
-           let stringValue = metadataObject.stringValue {
-            resultCallback?(stringValue)
-            captureSession?.stopRunning()
+            if let results = request.results as? [VNBarcodeObservation],
+               let qr = results.first,
+               let value = qr.payloadStringValue,
+               !self.isDetected {
+                self.isDetected = true
+                DispatchQueue.main.async {
+                    self.resultCallback?(value)
+                    self.captureSession?.stopRunning()
+                }
+            }
         }
+
+        let requestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+        try? requestHandler.perform([request])
     }
 
     deinit {
@@ -109,17 +119,27 @@ class QrScannerView: NSObject, FlutterPlatformView, AVCaptureMetadataOutputObjec
     }
 }
 
+// MARK: - Camera Output Delegate
+extension QrScannerView: AVCaptureVideoDataOutputSampleBufferDelegate {
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard !isDetected,
+              let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        self.handleVisionRequest(pixelBuffer: pixelBuffer)
+    }
+}
+
+// MARK: - View container
 class QrPreviewContainerView: UIView {
     private var previewLayer: AVCaptureVideoPreviewLayer?
 
     func setPreviewLayer(_ layer: AVCaptureVideoPreviewLayer) {
-        // Loại bỏ layer cũ nếu có
         self.previewLayer?.removeFromSuperlayer()
-
         self.previewLayer = layer
         layer.frame = self.bounds
         layer.videoGravity = .resizeAspectFill
-
         self.layer.insertSublayer(layer, at: 0)
         self.setNeedsLayout()
     }
