@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'flutter_qr_scanner_method_channel.dart';
 
@@ -25,5 +26,10 @@ abstract class FlutterQrScannerPlatform extends PlatformInterface {
 
   Future<Map?> scanQRFromImage(String filePath) {
     throw UnimplementedError('scanQRFromImage() has not been implemented.');
+  }
+
+  Future<Map?> scanQRFromImageBytes(Uint8List bytes) {
+    throw UnimplementedError(
+        'scanQRFromImageBytes() has not been implemented.');
   }
 }

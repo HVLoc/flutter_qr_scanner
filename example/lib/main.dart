@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_qr_scanner/flutter_qr_scanner.dart';
 import 'package:flutter_qr_scanner/qr_scanner_page.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
   runApp(const MyApp());
@@ -29,6 +30,17 @@ class QRScannerExampleScreen extends StatefulWidget {
 class _QRScannerExampleScreenState extends State<QRScannerExampleScreen> {
   String? content;
   String? fromImage;
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  Future<void> requestCameraPermission() async {
+    var status = await Permission.camera.status;
+    if (!status.isGranted) {
+      await Permission.camera.request();
+    }
+  }
 
   Future<void> _scanQRCode() async {
     final result = await FlutterQrScanner.scanQR(showGallery: true);

@@ -30,4 +30,13 @@ class MethodChannelFlutterQrScanner extends FlutterQrScannerPlatform {
     );
     return result;
   }
+
+  @override
+  Future<Map?> scanQRFromImageBytes(Uint8List bytes) async {
+    final result = await methodChannel.invokeMethod<Map>(
+      'scanQRFromImageBytes',
+      {"bytes": bytes},
+    );
+    return result;
+  }
 }

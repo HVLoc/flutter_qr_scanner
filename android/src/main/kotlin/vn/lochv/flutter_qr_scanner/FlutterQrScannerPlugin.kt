@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -16,6 +17,7 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import io.flutter.plugin.common.BinaryMessenger
+import java.io.ByteArrayInputStream
 
 class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware, PluginRegistry.ActivityResultListener {
 
@@ -24,26 +26,23 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
     private var result: MethodChannel.Result? = null
     private var pendingMethodCall: MethodCall? = null
     private var showGallery: Boolean = false
-    private var viewFactory: QrScannerViewFactory? = null
 
     override fun onAttachedToEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, "flutter_qr_scanner")
         channel.setMethodCallHandler(this)
-        // PlatformView đăng ký tại đây nếu activity đã có
-        // ✅ Đăng ký PlatformView ở đây
+
+        // Đăng ký PlatformView nếu cần (native camera view)
         binding.platformViewRegistry.registerViewFactory(
             "vn.lochv.flutter_qr_scanner/native_view",
             QrScannerViewFactory(binding.binaryMessenger)
         )
     }
 
-
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: MethodChannel.Result) {
         when (call.method) {
             "scanQR" -> {
                 this.result = result
                 this.pendingMethodCall = call
-
                 showGallery = call.argument<Boolean>("showGallery") ?: false
 
                 activity?.let {
@@ -61,6 +60,23 @@ class FlutterQrScannerPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, A
             "scanQRFromImage" -> {
                 val path = call.argument<String>("path")
                 val decoded = path?.let { QrScanHelper.scanQRFromImagePath(it) }
+                if (decoded != null) {
+                    result.success(decoded)
+                } else {
+                    result.error("QR_NOT_FOUND", "Không tìm thấy mã QR trong ảnh", null)
+                }
+            }
+
+            "scanQRFromImageBytes" -> {
+                val bytes = call.argument<ByteArray>("bytes")
+                if (bytes == null) {
+                    result.error("INVALID_INPUT", "Thiếu dữ liệu bytes", null)
+                    return
+                }
+
+                val bitmap = BitmapFactory.decodeStream(ByteArrayInputStream(bytes))
+                val decoded = QrScanHelper.scanQRFromBitmap(bitmap)
+
                 if (decoded != null) {
                     result.success(decoded)
                 } else {
