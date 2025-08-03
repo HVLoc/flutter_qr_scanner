@@ -20,7 +20,7 @@ class FlutterQrScanner {
   }
 
   // Quét từ ảnh (Uint8List)
-  Future<Map?> scanQRFromImageBytes(Uint8List bytes) async {
+  static Future<Map?> scanQRFromImageBytes(Uint8List bytes) async {
     return await FlutterQrScannerPlatform.instance.scanQRFromImageBytes(bytes);
   }
 }
