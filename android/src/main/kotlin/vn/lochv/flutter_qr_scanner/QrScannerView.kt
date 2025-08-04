@@ -15,12 +15,13 @@ class QrScannerView(
 ) : PlatformView {
 
     private val view: FrameLayout
-    private var lastScanTime = 0L  // Thời gian lần quét gần nhất (ms)
+    private lateinit var barcodeView: CompoundBarcodeView
+    private var lastScanTime = 0L
 
     init {
         view = FrameLayout(context)
 
-        val barcodeView = CompoundBarcodeView(context).apply {
+        barcodeView = CompoundBarcodeView(context).apply {
             statusView.text = ""
             cameraSettings.focusMode = CameraSettings.FocusMode.CONTINUOUS
             viewFinder.visibility = View.GONE
@@ -43,7 +44,7 @@ class QrScannerView(
         barcodeView.decodeContinuous(object : BarcodeCallback {
             override fun barcodeResult(result: BarcodeResult) {
                 val now = System.currentTimeMillis()
-                if (now - lastScanTime >= 1000) { // Cách nhau ít nhất 1s
+                if (now - lastScanTime >= 500) {
                     lastScanTime = now
                     onScanResult(result.text)
                 }
@@ -52,11 +53,22 @@ class QrScannerView(
             override fun possibleResultPoints(resultPoints: MutableList<com.google.zxing.ResultPoint>?) {}
         })
 
-        // Bắt đầu quét
         barcodeView.resume()
     }
 
     override fun getView(): View = view
 
-    override fun dispose() {}
+    override fun dispose() {
+        try {
+            barcodeView.pause()
+
+            val camera = barcodeView.barcodeView.cameraInstance
+            if (camera != null && camera.isOpen) {
+                camera.close()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
 }

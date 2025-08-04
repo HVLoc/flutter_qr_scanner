@@ -94,17 +94,18 @@ class QrScannerView: NSObject, FlutterPlatformView {
     }
 
     private func handleVisionRequest(pixelBuffer: CVPixelBuffer) {
+        guard let session = self.captureSession, session.isRunning else { return }
+
         let request = VNDetectBarcodesRequest { request, error in
             guard error == nil else { return }
-
             if let results = request.results as? [VNBarcodeObservation],
-               let qr = results.first,
-               let value = qr.payloadStringValue,
-               !self.isDetected {
+            let qr = results.first,
+            let value = qr.payloadStringValue,
+            !self.isDetected {
                 self.isDetected = true
                 DispatchQueue.main.async {
                     self.resultCallback?(value)
-                    self.captureSession?.stopRunning()
+                    self.stopCamera()
                 }
             }
         }
@@ -114,7 +115,15 @@ class QrScannerView: NSObject, FlutterPlatformView {
     }
 
     deinit {
-        captureSession?.stopRunning()
+        stopCamera()
+    }
+
+    private func stopCamera() {
+        guard let session = captureSession, session.isRunning else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            session.stopRunning()
+        }
         captureSession = nil
     }
 }
